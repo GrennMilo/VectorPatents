@@ -1,0 +1,17 @@
+PyPDF2==3.0.1
+pdf2image==1.16.3
+pytesseract==0.3.10
+numpy>=1.19.0
+scikit-learn>=0.24.0
+pandas>=1.1.0
+sentence-transformers>=2.2.0
+nltk>=3.6.0
+matplotlib>=3.3.0
+spacy==3.6.1
+PyMuPDF>=1.18.0
+transformers==4.30.2
+faiss-cpu>=1.7.0
+tqdm>=4.50.0
+pillow>=8.0.0
+tf-keras==2.19.0
+tkinter>=8.6.0 
