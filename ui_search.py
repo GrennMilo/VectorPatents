@@ -43,6 +43,9 @@ class PatentSearchUI:
         top_frame = ttk.Frame(self.root, padding="10")
         top_frame.pack(fill=tk.X)
         
+        options_frame = ttk.Frame(self.root, padding="10")
+        options_frame.pack(fill=tk.X)
+        
         results_frame = ttk.Frame(self.root, padding="10")
         results_frame.pack(fill=tk.BOTH, expand=True)
         
@@ -67,6 +70,14 @@ class PatentSearchUI:
         
         # Configure grid weights
         top_frame.columnconfigure(1, weight=1)
+        
+        # Options panel
+        self.unique_patents_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            options_frame, 
+            text="Show only one result per patent (excludes duplicate patents)",
+            variable=self.unique_patents_var
+        ).pack(side=tk.LEFT, padx=5)
         
         # Results area
         results_label_frame = ttk.Frame(results_frame)
@@ -126,7 +137,8 @@ class PatentSearchUI:
         """Execute search in background thread."""
         try:
             k = self.top_results_var.get()
-            results = self.searcher.search(query, k=k)
+            unique_patents = self.unique_patents_var.get()
+            results = self.searcher.search(query, k=k, unique_patents=unique_patents)
             self.search_results = results  # Store results for reference
             
             # Update UI in main thread
@@ -143,7 +155,13 @@ class PatentSearchUI:
             self.results_text.insert(tk.END, "No results found.")
             self.status_var.set("No results found")
         else:
-            self.results_text.insert(tk.END, f"Found {len(results)} relevant patent chunks:\n\n")
+            result_count = len(results)
+            unique_patent_count = len(set(r['patent_id'] for r in results))
+            
+            if self.unique_patents_var.get():
+                self.results_text.insert(tk.END, f"Found {result_count} relevant patent chunks from {unique_patent_count} different patents:\n\n")
+            else:
+                self.results_text.insert(tk.END, f"Found {result_count} relevant patent chunks from {unique_patent_count} different patents (showing all matching chunks):\n\n")
             
             for i, result in enumerate(results):
                 patent_id = result['patent_id']
@@ -181,7 +199,7 @@ class PatentSearchUI:
                 self.results_text.insert(tk.END, preview + "\n\n")
                 self.results_text.insert(tk.END, "="*80 + "\n\n")
             
-            self.status_var.set(f"Found {len(results)} results")
+            self.status_var.set(f"Found {result_count} results from {unique_patent_count} patents")
         
         self.results_text.config(state=tk.DISABLED)
         # Scroll to top

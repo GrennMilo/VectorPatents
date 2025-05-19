@@ -72,18 +72,36 @@ class PatentSearcher:
             
             self.patent_chunks[patent_id] = chunks
     
-    def search(self, query, k=5):
-        """Search for patents matching the query."""
+    def search(self, query, k=5, unique_patents=True):
+        """Search for patents matching the query.
+        
+        Args:
+            query (str): The search query
+            k (int): Number of results to return
+            unique_patents (bool): If True, only return the best match from each patent
+            
+        Returns:
+            list: List of results
+        """
         # Generate embedding for the query
         query_embedding = self.model.encode([query])[0].reshape(1, -1).astype('float32')
         
+        # Increase k if we want unique patents (we might need to fetch more to get k unique ones)
+        search_k = k * 3 if unique_patents else k
+        
         # Search the FAISS index
-        distances, indices = self.faiss_index.search(query_embedding, k)
+        distances, indices = self.faiss_index.search(query_embedding, search_k)
         
         results = []
+        seen_patents = set()  # Track patents we've already included
+        
         for i, idx in enumerate(indices[0]):
             if idx < len(self.chunk_mapping):
                 patent_id, chunk_idx = self.chunk_mapping[idx]
+                
+                # Skip if we've already seen this patent and unique_patents is True
+                if unique_patents and patent_id in seen_patents:
+                    continue
                 
                 # Check if patent chunks are loaded
                 if patent_id not in self.patent_chunks:
@@ -103,6 +121,13 @@ class PatentSearcher:
                     'distance': distances[0][i],
                     'text': chunk_text
                 })
+                
+                # Mark this patent as seen
+                seen_patents.add(patent_id)
+                
+                # If we have enough unique patents, stop
+                if unique_patents and len(results) >= k:
+                    break
         
         return results
     
@@ -152,12 +177,13 @@ def main():
     parser.add_argument('-k', '--top', type=int, default=5, help='Number of results to return (default: 5)')
     parser.add_argument('-d', '--db', default='Patent_DB', help='Path to the database directory (default: Patent_DB)')
     parser.add_argument('-o', '--output', help='Output file to save results')
+    parser.add_argument('--all-chunks', action='store_true', help='Show all matching chunks, even from the same patent')
     
     args = parser.parse_args()
     
     print(f"Searching for: {args.query}")
     searcher = PatentSearcher(db_dir=args.db)
-    results = searcher.search(args.query, k=args.top)
+    results = searcher.search(args.query, k=args.top, unique_patents=not args.all_chunks)
     
     searcher.print_results(results)
     
